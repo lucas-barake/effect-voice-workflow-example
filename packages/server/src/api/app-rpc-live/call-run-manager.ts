@@ -24,6 +24,7 @@ import { CallProcessor } from "./call-processor.js";
 import { CallSessionRepo } from "./call-session-repo.js";
 import { CallToolkitLive } from "./call-toolkit-live.js";
 import { CallMailbox, CallToolContext } from "./call-toolkit.js";
+import { ServicePlatform } from "./service-platform.js";
 import { WorkflowRunCoordinator } from "./workflow-run-coordinator.js";
 
 const CallRunWorkflow = Workflow.make({
@@ -60,6 +61,7 @@ export class CallRunManager extends Context.Service<CallRunManager, {
     const aiModels = yield* AiModels;
     const processor = yield* CallProcessor;
     const repo = yield* CallSessionRepo;
+    const servicePlatform = yield* ServicePlatform;
 
     const runs = yield* WorkflowRunCoordinator.make<
       typeof CallSessionId.Type,
@@ -106,6 +108,7 @@ export class CallRunManager extends Context.Service<CallRunManager, {
           Effect.provide(CallToolkitLive),
           Effect.provideService(CallMailbox, mailbox),
           Effect.provideService(CallSessionRepo, repo),
+          Effect.provideService(ServicePlatform, servicePlatform),
           Effect.provideService(CallToolContext, { sessionId: payload.sessionId }),
           Effect.catch((error) => Effect.die(error)),
         );
@@ -184,6 +187,7 @@ export class CallRunManager extends Context.Service<CallRunManager, {
     this.make,
   ).pipe(
     Layer.provide(AiModels.layer),
+    Layer.provide(ServicePlatform.layer),
     Layer.provide(CallSessionRepo.layer),
     Layer.provide(CallProcessor.layer),
     Layer.provide(WorkflowEngine.layerMemory),

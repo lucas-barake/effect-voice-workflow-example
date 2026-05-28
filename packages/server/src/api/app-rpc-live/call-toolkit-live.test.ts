@@ -13,6 +13,7 @@ import type * as Take from "effect/Take";
 import { CallSessionRepo } from "./call-session-repo.js";
 import { CallToolkitLive } from "./call-toolkit-live.js";
 import { CallMailbox, CallToolContext, CallToolkit } from "./call-toolkit.js";
+import { ServicePlatform } from "./service-platform.js";
 
 const SESSION_ID = CallSessionId.make("40000000-0000-4000-8000-000000000011");
 
@@ -53,6 +54,17 @@ describe("CallToolkitLive", () => {
         Effect.map((results) => [...results][0]?.result),
         Effect.provide(CallToolkitLive),
         Effect.provideService(CallMailbox, mailbox),
+        Effect.provideService(
+          ServicePlatform,
+          ServicePlatform.of({
+            getDashboardSnapshot: Effect.die("unused"),
+            getCallSession: () => Effect.die("unused"),
+            bookAppointment: () => Effect.die("unused"),
+            createUploadLink: () => Effect.die("unused"),
+            getUploadSession: () => Effect.die("unused"),
+            storeUpload: () => Effect.die("unused"),
+          }),
+        ),
         Effect.provideService(
           CallSessionRepo,
           CallSessionRepo.of({
@@ -105,6 +117,17 @@ describe("CallToolkitLive", () => {
         Effect.exit,
         Effect.provide(CallToolkitLive),
         Effect.provideService(CallMailbox, mailbox),
+        Effect.provideService(
+          ServicePlatform,
+          ServicePlatform.of({
+            getDashboardSnapshot: Effect.die("unused"),
+            getCallSession: () => Effect.die("unused"),
+            bookAppointment: () => Effect.die("unused"),
+            createUploadLink: () => Effect.die("unused"),
+            getUploadSession: () => Effect.die("unused"),
+            storeUpload: () => Effect.die("unused"),
+          }),
+        ),
         Effect.provideService(
           CallSessionRepo,
           CallSessionRepo.of({
@@ -167,6 +190,17 @@ describe("CallToolkitLive", () => {
         Effect.provide(CallToolkitLive),
         Effect.provideService(CallMailbox, mailbox),
         Effect.provideService(CallToolContext, { sessionId: SESSION_ID }),
+        Effect.provideService(
+          ServicePlatform,
+          ServicePlatform.of({
+            getDashboardSnapshot: Effect.die("unused"),
+            getCallSession: () => Effect.die("unused"),
+            bookAppointment: () => Effect.die("unused"),
+            createUploadLink: () => Effect.die("unused"),
+            getUploadSession: () => Effect.die("unused"),
+            storeUpload: () => Effect.die("unused"),
+          }),
+        ),
         Effect.provideService(
           CallSessionRepo,
           CallSessionRepo.of({
