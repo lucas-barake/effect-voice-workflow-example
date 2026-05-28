@@ -37,13 +37,13 @@ This repo is an Effect v4 example monorepo for a voice enabled service workflow.
 - upload link generation and token based upload flow
 - local image analysis for appliance recognition and visible issue extraction
 - local email delivery records for upload invitation inspection
-- Twilio style `POST /api/phone/twilio/voice` support for a real phone number hookup
+- local-first `POST /api/phone/twilio/voice` support with an optional Twilio-backed webhook mode
 - Docker Compose startup for Postgres, server, and client, with optional bundled Ollama
 
 ## Current Boundaries
 
 - a real carrier account and public phone number still need to be provisioned outside the repo
-- the phone path is currently implemented against Twilio style webhooks, not multiple carriers
+- the phone path currently supports a local default mode plus an optional Twilio-backed webhook mode
 - speech handling in the browser path still uses browser native microphone capture and speech playback rather than a dedicated backend STT or TTS runtime
 
 Those limits keep the example runnable on local infrastructure without paid AI dependencies.
@@ -117,8 +117,10 @@ npx pnpm@10.30.3 --filter @app/client exec vite --host 0.0.0.0 --port 4173
 The server reads these variables:
 
 - `DATABASE_URL`
+- `PHONE_PROVIDER`
 - `PUBLIC_APP_ORIGIN`
 - `PUBLIC_WEBHOOK_BASE_URL`
+- `TWILIO_AUTH_TOKEN`
 - `SERVER_PORT`
 - `LOCAL_LLM_API_URL`
 - `LOCAL_LLM_API_KEY`
@@ -132,7 +134,9 @@ Docker Compose also accepts:
 
 - `LITELLM_OLLAMA_API_BASE`
 
-For a real phone hookup, set `PUBLIC_WEBHOOK_BASE_URL` to the public HTTPS base URL that Twilio will call and point the voice webhook at `/api/phone/twilio/voice`.
+Set `PHONE_PROVIDER=local` to keep the voice webhook runnable without carrier credentials.
+Set `PHONE_PROVIDER=twilio` to require Twilio request validation on `POST /api/phone/twilio/voice`.
+For a real phone hookup, set `PUBLIC_WEBHOOK_BASE_URL` to the public HTTPS base URL that Twilio will call, set `TWILIO_AUTH_TOKEN` to the matching Twilio auth token, and point the voice webhook at `/api/phone/twilio/voice`.
 The chat and vision model names are fixed in code so the local AI runtime stays predictable.
 When you use the default Compose path, `LITELLM_OLLAMA_API_BASE` should normally stay pointed at `http://host.docker.internal:11434` so LiteLLM can reuse your host Ollama.
 
@@ -140,7 +144,7 @@ When you use the default Compose path, `LITELLM_OLLAMA_API_BASE` should normally
 
 - sample technician data covers 6 technicians and 12 seeded availability slots
 - the browser dashboard is the main local console
-- the phone webhook shares the same `CallRunManager` and AI toolkit as the browser path
+- the local and Twilio phone adapters share the same `CallRunManager` and AI toolkit as the browser path
 - the upload flow is tokenized, stored locally, and mirrored into the local email outbox
 - `npx pnpm@10.30.3 check` passes
 

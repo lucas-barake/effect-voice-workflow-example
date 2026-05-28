@@ -12,6 +12,7 @@ import { SqlClient } from "effect/unstable/sql/SqlClient";
 import { CallSessionRepo } from "./call-session-repo.js";
 
 const TestConfig = Layer.succeed(AppConfig, {
+  phoneProvider: "local" as const,
   publicAppOrigin: "http://localhost:4173",
   publicWebhookBaseUrl: null,
   twilioAuthToken: null,

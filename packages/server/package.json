@@ -11,7 +11,8 @@
     "@effect/platform-node": "*",
     "@effect/sql-pg": "*",
     "effect": "*",
-    "pg": "^8.19.0"
+    "pg": "^8.19.0",
+    "twilio": "^6.0.2"
   },
   "devDependencies": {
     "@testcontainers/postgresql": "^11.12.0",

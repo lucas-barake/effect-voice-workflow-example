@@ -17,13 +17,14 @@ import * as HttpRouter from "effect/unstable/http/HttpRouter";
 import * as HttpServer from "effect/unstable/http/HttpServer";
 import { createHmac } from "node:crypto";
 import { CallRunManager } from "../api/app-rpc-live/call-run-manager.js";
-import { PhoneVoiceRoute } from "./phone-routes.js";
+import { PhoneVoiceRouteLive } from "./phone-routes.js";
 
 const SESSION_ID = CallSessionId.make("40000000-0000-4000-8000-000000000001");
 const RUN_ID = CallRunId.make("40000000-0000-4000-8000-000000000002");
 
 const makeConfigLayer = (
   overrides?: Partial<{
+    readonly phoneProvider: "local" | "twilio";
     readonly publicAppOrigin: string;
     readonly publicWebhookBaseUrl: string | null;
     readonly twilioAuthToken: string | null;
@@ -34,6 +35,7 @@ const makeConfigLayer = (
   }>,
 ) =>
   Layer.succeed(AppConfig, {
+    phoneProvider: "local" as const,
     publicAppOrigin: "http://localhost:4173",
     publicWebhookBaseUrl: null,
     twilioAuthToken: null,
@@ -66,6 +68,7 @@ const computeSignature = (args: {
 
 const makeRouteLayer = (overrides?: {
   readonly config?: Partial<{
+    readonly phoneProvider: "local" | "twilio";
     readonly publicAppOrigin: string;
     readonly publicWebhookBaseUrl: string | null;
     readonly twilioAuthToken: string | null;
@@ -83,32 +86,33 @@ const makeRouteLayer = (overrides?: {
   readonly events?: (
     runId: typeof CallRunId.Type,
   ) => Stream.Stream<typeof CallRunEvent.Type, CallRunNotFound>;
-}) =>
-  HttpRouter.serve(PhoneVoiceRoute).pipe(
-    Layer.provide(
-      Layer.mergeAll(
-        Layer.succeed(
-          CallRunManager,
-          CallRunManager.of({
-            watch: () => Stream.empty,
-            events: overrides?.events ?? (() =>
-              Stream.fromIterable([{
-                _tag: "RunCompleted" as const,
-                sessionId: SESSION_ID,
-                assistantMessage: "Check the condenser coils and tell me if they are dusty.",
-              }])),
-            start: overrides?.start ?? (() =>
-              Effect.succeed({
-                runId: RUN_ID,
-                sessionId: SESSION_ID,
-              })),
-            interrupt: () => Effect.void,
-          }),
-        ),
-        makeConfigLayer(overrides?.config),
-      ),
+}) => {
+  const dependencies = Layer.mergeAll(
+    Layer.succeed(
+      CallRunManager,
+      CallRunManager.of({
+        watch: () => Stream.empty,
+        events: overrides?.events ?? (() =>
+          Stream.fromIterable([{
+            _tag: "RunCompleted" as const,
+            sessionId: SESSION_ID,
+            assistantMessage: "Check the condenser coils and tell me if they are dusty.",
+          }])),
+        start: overrides?.start ?? (() =>
+          Effect.succeed({
+            runId: RUN_ID,
+            sessionId: SESSION_ID,
+          })),
+        interrupt: () => Effect.void,
+      }),
     ),
+    makeConfigLayer(overrides?.config),
   );
+
+  return HttpRouter.serve(PhoneVoiceRouteLive).pipe(
+    Layer.provide(dependencies),
+  );
+};
 
 describe("PhoneVoiceRoute", () => {
   afterEach(() => {
@@ -144,7 +148,10 @@ describe("PhoneVoiceRoute", () => {
   it.effect("rejects public webhook requests when the Twilio auth token is missing", () =>
     Effect.gen(function*() {
       yield* Layer.build(makeRouteLayer({
-        config: { publicWebhookBaseUrl: "http://localhost:3000" },
+        config: {
+          phoneProvider: "twilio",
+          publicWebhookBaseUrl: "https://hooks.example.com",
+        },
       }));
 
       const response = yield* postVoiceRequest({
@@ -160,7 +167,8 @@ describe("PhoneVoiceRoute", () => {
       const startCalls: Array<typeof StartCallRunInput.Type> = [];
       yield* Layer.build(makeRouteLayer({
         config: {
-          publicWebhookBaseUrl: "http://localhost:3000",
+          phoneProvider: "twilio",
+          publicWebhookBaseUrl: "https://hooks.example.com",
           twilioAuthToken: "twilio-secret",
         },
         start: (input) => {
@@ -192,7 +200,8 @@ describe("PhoneVoiceRoute", () => {
       const eventRunIds: Array<typeof CallRunId.Type> = [];
       yield* Layer.build(makeRouteLayer({
         config: {
-          publicWebhookBaseUrl: "http://localhost:3000",
+          phoneProvider: "twilio",
+          publicWebhookBaseUrl: "https://hooks.example.com",
           twilioAuthToken: "twilio-secret",
         },
         start: (input) => {
@@ -224,7 +233,7 @@ describe("PhoneVoiceRoute", () => {
         headers: {
           "x-twilio-signature": computeSignature({
             authToken: "twilio-secret",
-            url: "http://localhost:3000/api/phone/twilio/voice",
+            url: "https://hooks.example.com/api/phone/twilio/voice",
             params,
           }),
         },
@@ -240,6 +249,10 @@ describe("PhoneVoiceRoute", () => {
         utterance: "My refrigerator is warm",
       }]);
       expect(eventRunIds).toEqual([RUN_ID]);
-      expect(yield* Effect.promise(() => response.text())).toContain(String(SESSION_ID));
+      const body = yield* Effect.promise(() => response.text());
+      expect(body).toContain(String(SESSION_ID));
+      expect(body).toContain(
+        `action="https://hooks.example.com/api/phone/twilio/voice?sessionId=${SESSION_ID}"`,
+      );
     }).pipe(Effect.provide(NodeHttpServer.layerTest)));
 });

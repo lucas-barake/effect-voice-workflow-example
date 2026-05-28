@@ -20,6 +20,7 @@ import { ServicePlatform } from "./service-platform.js";
 const SESSION_ID = CallSessionId.make("40000000-0000-4000-8000-000000000021");
 
 const TestConfig = Layer.succeed(AppConfig, {
+  phoneProvider: "local" as const,
   publicAppOrigin: "http://localhost:4173",
   publicWebhookBaseUrl: null,
   twilioAuthToken: null,
