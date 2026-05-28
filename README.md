@@ -33,7 +33,7 @@ This repo is an Effect v4 example monorepo for a voice enabled service workflow.
 - streamed call runs over Effect RPC with tool backed AI turns
 - session memory across turns
 - technician slot lookup by appliance type and zip code
-- appointment booking and confirmation state
+- in-call slot proposal, booking, and confirmation state
 - upload link generation and token based upload flow
 - local image analysis for appliance recognition and visible issue extraction
 - local email delivery records for upload invitation inspection
@@ -75,6 +75,7 @@ http://localhost:4173
 ```
 
 5. Use `New call` to start a session, then continue the conversation from the selected call workspace.
+6. When the issue needs a visit, tell the agent which appointment window works for you and let it confirm the booked slot in the transcript.
 
 The default Compose path reuses your already running host Ollama through LiteLLM.
 If you want a fully bundled Ollama inside Compose instead, run:

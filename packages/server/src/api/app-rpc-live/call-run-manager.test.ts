@@ -15,6 +15,7 @@ import { CallProcessor } from "./call-processor.js";
 import { CallRunManager } from "./call-run-manager.js";
 import { CallSessionModel } from "./call-session-model.js";
 import { CallSessionRepo } from "./call-session-repo.js";
+import { ServicePlatform } from "./service-platform.js";
 
 const SESSION_ID = CallSessionId.make("40000000-0000-4000-8000-000000000021");
 
@@ -55,6 +56,17 @@ const makeLayer = (args: {
   Layer.effect(CallRunManager, CallRunManager.make).pipe(
     Layer.provide(AiModels.layer),
     Layer.provide(TestConfig),
+    Layer.provide(Layer.succeed(
+      ServicePlatform,
+      ServicePlatform.of({
+        getDashboardSnapshot: Effect.die("unused"),
+        getCallSession: () => Effect.die("unused"),
+        bookAppointment: () => Effect.die("unused"),
+        createUploadLink: () => Effect.die("unused"),
+        getUploadSession: () => Effect.die("unused"),
+        storeUpload: () => Effect.die("unused"),
+      }),
+    )),
     Layer.provide(Layer.succeed(CallSessionRepo, args.repo)),
     Layer.provide(Layer.succeed(CallProcessor, args.processor)),
     Layer.provide(WorkflowEngine.layerMemory),

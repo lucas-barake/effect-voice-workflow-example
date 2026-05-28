@@ -87,6 +87,7 @@ export type TranscriptEntry = typeof TranscriptEntry.Type;
 
 export const CallToolName = Schema.Literals([
   "lookup_recommended_slots",
+  "book_appointment",
   "lookup_technician_load",
   "lookup_upload_context",
 ]);

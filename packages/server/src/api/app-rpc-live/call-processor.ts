@@ -56,6 +56,10 @@ const systemInstructions = [
   "Do not mention internal tooling.",
   "Do not ask for the customer name, phone number, email, or zip code again when those details are already known in the session context.",
   "If the caller asks for a photo upload link and the email is already known, acknowledge that a secure upload link can be sent.",
+  "When a technician visit is needed and the appliance type plus zip code are known, ask for the caller's availability before proposing times.",
+  "Use lookup_recommended_slots to offer one or two appointment windows that fit what the caller said.",
+  "Do not book a visit until the caller explicitly accepts a proposed slot.",
+  "When the caller accepts a proposed slot, use book_appointment and then confirm the technician name, appointment window, and confirmation code in your reply.",
   "Only ask for missing information when it is truly required for the very next step.",
 ].join("\n");
 
@@ -134,10 +138,12 @@ const makeStatePrompt = ({
   session,
   input,
   assistantMessage,
+  bookedAppointment,
 }: {
   readonly session: typeof CallSessionModel.Type;
   readonly input: StartCallRunInputType;
   readonly assistantMessage: string;
+  readonly bookedAppointment: boolean;
 }) =>
   [
     "Return only structured output.",
@@ -148,7 +154,9 @@ const makeStatePrompt = ({
     "troubleshooting when you can give actionable steps to try now.",
     "ready_to_schedule when a technician visit is the best next step.",
     "resolved only when the caller clearly says the issue is fixed.",
-    "scheduled and awaiting_upload are reserved for downstream actions and should not be emitted here.",
+    "scheduled when a technician visit was booked during this turn.",
+    "awaiting_upload is reserved for downstream actions and should not be emitted here.",
+    "If booked_appointment=true, set status to scheduled and leave nextSteps empty.",
     `existing_customer_name=${session.customerName}`,
     `existing_email=${session.email ?? "unknown"}`,
     `existing_zip_code=${session.zipCode ?? "unknown"}`,
@@ -160,6 +168,7 @@ const makeStatePrompt = ({
     `turn_phone_number=${input.phoneNumber ?? "unknown"}`,
     `turn_email=${input.email ?? "unknown"}`,
     `turn_zip_code=${input.zipCode ?? "unknown"}`,
+    `booked_appointment=${String(bookedAppointment)}`,
     `caller_utterance=${input.utterance}`,
     `assistant_message=${assistantMessage}`,
   ].join("\n");
@@ -235,6 +244,7 @@ export class CallProcessor extends Context.Service<CallProcessor>()("CallProcess
         let assistantMessage = "";
         const toolTranscript: TranscriptEntryType[] = [];
         let continueLoop = true;
+        let bookedAppointment = false;
 
         while (continueLoop) {
           const result = yield* chat.streamText({
@@ -247,7 +257,7 @@ export class CallProcessor extends Context.Service<CallProcessor>()("CallProcess
                 textSoFar: "",
                 toolResults: Arr.empty<{
                   readonly name: string;
-                  readonly result: Schema.Json;
+                  readonly result: string;
                   readonly isFailure: boolean;
                 }>(),
               }),
@@ -266,7 +276,9 @@ export class CallProcessor extends Context.Service<CallProcessor>()("CallProcess
                         ...acc.toolResults,
                         {
                           name: part.name,
-                          result: part.result,
+                          result: typeof part.result === "string"
+                            ? part.result
+                            : JSON.stringify(part.result),
                           isFailure: part.isFailure,
                         },
                       ],
@@ -295,15 +307,15 @@ export class CallProcessor extends Context.Service<CallProcessor>()("CallProcess
           );
 
           assistantMessage = `${assistantMessage}${result.textSoFar}`;
+          bookedAppointment = bookedAppointment
+            || result.toolResults.some((toolResult) =>
+              toolResult.name === "book_appointment" && !toolResult.isFailure
+            );
           for (const toolResult of result.toolResults) {
             toolTranscript.push(
               yield* transcriptMessage(
                 "tool",
-                `${toolResult.name}: ${
-                  typeof toolResult.result === "string"
-                    ? toolResult.result
-                    : JSON.stringify(toolResult.result)
-                }`,
+                `${toolResult.name}: ${toolResult.result}`,
               ),
             );
           }
@@ -322,6 +334,7 @@ export class CallProcessor extends Context.Service<CallProcessor>()("CallProcess
             session,
             input,
             assistantMessage,
+            bookedAppointment,
           }),
           schema: TurnSessionDraft,
         }).pipe(
@@ -338,9 +351,9 @@ export class CallProcessor extends Context.Service<CallProcessor>()("CallProcess
             sessionZipCode: session.zipCode,
           }),
           applianceType: state.applianceType,
-          status: state.status,
+          status: bookedAppointment ? "scheduled" : state.status,
           symptomSummary: state.symptomSummary,
-          nextSteps: state.nextSteps,
+          nextSteps: bookedAppointment ? [] : state.nextSteps,
           assistantMessage,
           transcript: [
             ...session.transcript,

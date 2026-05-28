@@ -47,15 +47,15 @@ Both the browser console and the phone webhook drive the same workflow run stack
 
 1. caller speech or typed text starts a `CallRun`
 2. server reserves the session through a workflow run coordinator
-3. the model streams assistant text and can call a typed toolkit for recommended slots, technician load, and upload context
+3. the model streams assistant text and can call a typed toolkit for recommended slots, technician load, upload context, and appointment booking
 4. server persists the authoritative session update after the turn completes
 5. browser clients refresh from `watch` plus `events`, while the phone webhook waits for completion and speaks the reply back to the caller
 
-The important design choice is that the model does not schedule directly. It can inspect operational data, but scheduling remains deterministic application logic against the database.
+The important design choice is that the model does not mutate the database arbitrarily. It can only schedule by calling a typed booking tool that routes into deterministic application logic against the database.
 
 ## Scheduling Flow
 
-Slot lookup is keyed by appliance type and zip code. Booking is transactional. A slot is only assigned when it is still open at write time, and the session is updated to `scheduled` in the same database transaction.
+Slot lookup is keyed by appliance type and zip code. The agent is prompted to collect caller availability first, propose one or two matching windows, and only book after the caller accepts a specific slot. Booking is transactional. A slot is only assigned when it is still open at write time, and the session is updated to `scheduled` in the same database transaction.
 
 This keeps the model out of critical booking decisions and ensures the behavior stays explainable.
 
