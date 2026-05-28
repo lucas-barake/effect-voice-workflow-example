@@ -1,0 +1,10 @@
+model_list:
+  - model_name: llama3.2
+    litellm_params:
+      model: ollama/llama3.2
+      api_base: os.environ/LITELLM_OLLAMA_API_BASE
+
+  - model_name: llama3.2-vision
+    litellm_params:
+      model: ollama/llama3.2-vision
+      api_base: os.environ/LITELLM_OLLAMA_API_BASE

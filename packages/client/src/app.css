@@ -1,0 +1,15 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Aptos", "Segoe UI", system-ui, sans-serif;
+  --font-mono: ui-monospace, "JetBrains Mono", "Fira Code", monospace;
+}
+
+html,
+body {
+  @apply h-full bg-slate-50 font-sans text-slate-950 antialiased;
+}
+
+#root {
+  @apply h-full;
+}

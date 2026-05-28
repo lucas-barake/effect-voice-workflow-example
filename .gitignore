@@ -1,0 +1,15 @@
+node_modules/
+build/
+dist/
+*.tsbuildinfo
+.tsbuildinfo/
+.direnv/
+.claude/
+.context/
+.zed/
+.env
+.env.local
+.envrc
+coverage/
+.DS_Store
+packages/server/data/uploads/

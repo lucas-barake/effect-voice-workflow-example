@@ -1,0 +1,116 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: household_ops_platform
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d household_ops_platform"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  litellm:
+    image: ghcr.io/berriai/litellm:main-latest
+    environment:
+      LITELLM_OLLAMA_API_BASE: ${LITELLM_OLLAMA_API_BASE:-http://host.docker.internal:11434}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    command:
+      - "--config"
+      - "/app/litellm.config.yaml"
+      - "--port"
+      - "4000"
+    volumes:
+      - ./litellm.config.yaml:/app/litellm.config.yaml:ro
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:4000/health/liveliness', timeout=5)",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  ollama:
+    image: ollama/ollama:latest
+    profiles: ["bundled-ollama"]
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+
+  ollama-init:
+    image: ollama/ollama:latest
+    profiles: ["bundled-ollama"]
+    depends_on:
+      - ollama
+    entrypoint: ["/bin/sh", "-lc"]
+    command:
+      - >
+        until ollama list >/dev/null 2>&1; do
+          sleep 2;
+        done;
+        OLLAMA_HOST=http://ollama:11434 ollama pull ${OLLAMA_MODEL:-llama3.2};
+        OLLAMA_HOST=http://ollama:11434 ollama pull ${OLLAMA_VISION_MODEL:-llama3.2-vision}
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile.app
+    depends_on:
+      litellm:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    command: pnpm --filter @app/server dev
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/household_ops_platform
+      PUBLIC_APP_ORIGIN: http://localhost:4173
+      SERVER_PORT: 3000
+      LOCAL_LLM_API_URL: http://litellm:4000/v1
+      LOCAL_LLM_API_KEY: ${LOCAL_LLM_API_KEY:-local}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/app
+      - node-modules:/app/node_modules
+      - server-node-modules:/app/packages/server/node_modules
+
+  client:
+    build:
+      context: .
+      dockerfile: Dockerfile.app
+    depends_on:
+      server:
+        condition: service_started
+    command: pnpm --filter @app/client exec vite --host 0.0.0.0 --port 4173 --strictPort
+    environment:
+      VITE_SERVER_HTTP_ORIGIN: http://localhost:3000
+      VITE_RPC_WS_URL: ws://localhost:3000/rpc
+      CHOKIDAR_USEPOLLING: "true"
+    ports:
+      - "4173:4173"
+    volumes:
+      - .:/app
+      - node-modules:/app/node_modules
+      - client-node-modules:/app/packages/client/node_modules
+
+volumes:
+  postgres-data:
+  ollama-data:
+  node-modules:
+  server-node-modules:
+  client-node-modules:

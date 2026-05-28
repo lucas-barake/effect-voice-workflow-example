@@ -1,0 +1,29 @@
+{
+  "name": "@app/client",
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite"
+  },
+  "dependencies": {
+    "@app/domain": "workspace:^",
+    "@effect/atom-react": "*",
+    "@effect/platform-browser": "*",
+    "@tanstack/react-router": "*",
+    "effect": "*",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "*",
+    "@tanstack/router-plugin": "*",
+    "@testing-library/react": "*",
+    "@testing-library/user-event": "*",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.3.0",
+    "jsdom": "*",
+    "tailwindcss": "*",
+    "vite": "^6.0.0"
+  }
+}
