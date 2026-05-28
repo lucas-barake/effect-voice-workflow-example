@@ -41,10 +41,9 @@ const HttpApplication = Layer.mergeAll(
 
 const ServerLayer = Layer.unwrap(
   Effect.gen(function*() {
-    const config = yield* AppConfig;
     return HttpRouter.serve(HttpApplication).pipe(
       Layer.provide(
-        NodeHttpServer.layer(createServer, { port: config.serverPort }),
+        NodeHttpServer.layer(createServer, { port: (yield* AppConfig).serverPort }),
       ),
     );
   }),

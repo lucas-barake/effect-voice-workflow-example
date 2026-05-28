@@ -59,34 +59,17 @@ const invalidSignatureResponse = {
   body: "Invalid Twilio signature.",
 } as const;
 
-const canonicalActionUrl = (args: {
-  readonly actionBase: string;
-  readonly sessionId: typeof CallSessionId.Type | null;
-}) => args.sessionId === null ? args.actionBase : `${args.actionBase}?sessionId=${args.sessionId}`;
+const canonicalActionUrl = (
+  actionBase: string,
+  sessionId: typeof CallSessionId.Type | null,
+) => sessionId === null ? actionBase : `${actionBase}?sessionId=${sessionId}`;
 
 const mergeRequestBody = (requestPath: string, body: UrlParams.UrlParams) =>
-  UrlParams.fromInput([
-    ...body.params,
-    ...new URL(requestPath, "http://localhost").searchParams.entries(),
-  ]);
-
-const buildValidationParams = (body: UrlParams.UrlParams) =>
-  Object.fromEntries(
-    [...body.params].reduce(
-      (entries, [key, value]) => {
-        const existing = entries.get(key);
-        if (existing === undefined) {
-          entries.set(key, value);
-        } else if (Array.isArray(existing)) {
-          entries.set(key, [...existing, value]);
-        } else {
-          entries.set(key, [existing, value]);
-        }
-        return entries;
-      },
-      new Map<string, string | Array<string>>(),
-    ).entries(),
+  body.pipe(
+    UrlParams.appendAll(new URL(requestPath, "http://localhost").searchParams),
   );
+
+const buildValidationParams = (body: UrlParams.UrlParams) => UrlParams.toRecord(body);
 
 const runTurn = Effect.fnUntraced(function*(args: {
   readonly actionBase: string;
@@ -107,10 +90,7 @@ const runTurn = Effect.fnUntraced(function*(args: {
       status: 200,
       contentType: "text/xml",
       body: gatherResponse({
-        actionUrl: canonicalActionUrl({
-          actionBase: args.actionBase,
-          sessionId,
-        }),
+        actionUrl: canonicalActionUrl(args.actionBase, sessionId),
         prompt,
       }),
     } as const;
@@ -140,10 +120,7 @@ const runTurn = Effect.fnUntraced(function*(args: {
     status: 200,
     contentType: "text/xml",
     body: gatherResponse({
-      actionUrl: canonicalActionUrl({
-        actionBase: args.actionBase,
-        sessionId: started.sessionId,
-      }),
+      actionUrl: canonicalActionUrl(args.actionBase, started.sessionId),
       prompt: continuePrompt(assistantMessage),
     }),
   } as const;
