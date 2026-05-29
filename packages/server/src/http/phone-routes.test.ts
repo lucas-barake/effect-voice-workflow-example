@@ -194,6 +194,43 @@ describe("PhoneVoiceRoute", () => {
       expect(startCalls).toEqual([]);
     }).pipe(Effect.provide(NodeHttpServer.layerTest)));
 
+  it.effect("returns the initial TwiML prompt for a valid signed Twilio request without SpeechResult", () =>
+    Effect.gen(function*() {
+      const startCalls: Array<typeof StartCallRunInput.Type> = [];
+      yield* Layer.build(makeRouteLayer({
+        config: {
+          phoneProvider: "twilio",
+          publicWebhookBaseUrl: "https://hooks.example.com",
+          twilioAuthToken: "twilio-secret",
+        },
+        start: (input) => {
+          startCalls.push(input);
+          return Effect.succeed({
+            runId: RUN_ID,
+            sessionId: SESSION_ID,
+          });
+        },
+      }));
+
+      const params = new URLSearchParams();
+      const response = yield* postVoiceRequest({
+        body: params,
+        headers: {
+          "x-twilio-signature": computeSignature({
+            authToken: "twilio-secret",
+            url: "https://hooks.example.com/api/phone/twilio/voice",
+            params,
+          }),
+        },
+      });
+
+      expect(response.status).toBe(200);
+      expect(startCalls).toEqual([]);
+      const body = yield* Effect.promise(() => response.text());
+      expect(body).toContain("Please tell me what appliance is giving you trouble.");
+      expect(body).toContain("action=\"https://hooks.example.com/api/phone/twilio/voice\"");
+    }).pipe(Effect.provide(NodeHttpServer.layerTest)));
+
   it.effect("starts a run and returns TwiML when the signature is valid", () =>
     Effect.gen(function*() {
       const startCalls: Array<typeof StartCallRunInput.Type> = [];

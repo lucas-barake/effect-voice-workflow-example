@@ -73,6 +73,23 @@ describe("AppConfig", () => {
       })),
     ));
 
+  it.effect("stays in local mode by default when Twilio env is present but PHONE_PROVIDER is unset", () =>
+    Effect.gen(function*() {
+      const config = yield* AppConfig;
+
+      expect(config.phoneProvider).toBe("local");
+      expect(config.publicWebhookBaseUrl).toBe("https://hooks.example.com");
+      expect(config.twilioAuthToken).toBe("twilio-secret");
+    }).pipe(
+      Effect.provide(AppConfigLive),
+      Effect.provide(makeConfigLayer({
+        DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/household_ops_platform",
+        PUBLIC_APP_ORIGIN: "https://ops.example.com",
+        PUBLIC_WEBHOOK_BASE_URL: "https://hooks.example.com",
+        TWILIO_AUTH_TOKEN: "twilio-secret",
+      })),
+    ));
+
   it.effect("fails in the error channel when PHONE_PROVIDER is invalid", () =>
     Effect.gen(function*() {
       const exit = yield* AppConfig.pipe(

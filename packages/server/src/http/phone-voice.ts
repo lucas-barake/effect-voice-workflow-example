@@ -69,35 +69,44 @@ const mergeRequestBody = (requestPath: string, body: UrlParams.UrlParams) =>
     UrlParams.appendAll(new URL(requestPath, "http://localhost").searchParams),
   );
 
+const parseSessionIdFromRequestPath = (requestPath: string) =>
+  parseSessionId(new URL(requestPath, "http://localhost").searchParams.get("sessionId"));
+
 const buildValidationParams = (body: UrlParams.UrlParams) => UrlParams.toRecord(body);
+
+const resolveWebhookUrl = (publicWebhookBaseUrl: string, requestPath: string) => {
+  const requestUrl = new URL(requestPath, "http://localhost");
+  return new URL(
+    `${requestUrl.pathname.replace(/^\/+/, "")}${requestUrl.search}`,
+    publicWebhookBaseUrl.endsWith("/") ? publicWebhookBaseUrl : `${publicWebhookBaseUrl}/`,
+  ).toString();
+};
 
 const runTurn = Effect.fnUntraced(function*(args: {
   readonly actionBase: string;
   readonly body: UrlParams.UrlParams;
+  readonly sessionId: typeof CallSessionId.Type | null;
 }) {
   const callRunManager = yield* CallRunManager;
   const speechResult = Option.getOrUndefined(UrlParams.getFirst(args.body, "SpeechResult"));
   const from = Option.getOrUndefined(UrlParams.getFirst(args.body, "From"));
-  const sessionId = parseSessionId(
-    Option.getOrUndefined(UrlParams.getFirst(args.body, "sessionId")) ?? null,
-  );
 
   if (typeof speechResult !== "string" || speechResult.trim().length === 0) {
-    const prompt = sessionId === null
+    const prompt = args.sessionId === null
       ? "Thanks for calling household service operations. Please tell me what appliance is giving you trouble."
       : "Tell me the next detail about the appliance issue.";
     return {
       status: 200,
       contentType: "text/xml",
       body: gatherResponse({
-        actionUrl: canonicalActionUrl(args.actionBase, sessionId),
+        actionUrl: canonicalActionUrl(args.actionBase, args.sessionId),
         prompt,
       }),
     } as const;
   }
 
   const started = yield* callRunManager.start({
-    sessionId,
+    sessionId: args.sessionId,
     customerName: null,
     phoneNumber: typeof from === "string" ? from : null,
     email: null,
@@ -158,6 +167,7 @@ export class PhoneVoice extends Context.Service<PhoneVoice, {
           runTurn({
             actionBase: "/api/phone/twilio/voice",
             body: mergeRequestBody(input.requestPath, input.body),
+            sessionId: parseSessionIdFromRequestPath(input.requestPath),
           }).pipe(Effect.provideService(CallRunManager, callRunManager)),
       });
     }),
@@ -180,7 +190,7 @@ export class PhoneVoice extends Context.Service<PhoneVoice, {
             return Effect.succeed(unavailableResponse);
           }
 
-          const requestUrl = new URL(input.requestPath, publicWebhookBaseUrl).toString();
+          const requestUrl = resolveWebhookUrl(publicWebhookBaseUrl, input.requestPath);
           const actualSignature = input.headers["x-twilio-signature"] ?? "";
           const params = buildValidationParams(input.body);
 
@@ -189,8 +199,9 @@ export class PhoneVoice extends Context.Service<PhoneVoice, {
           }
 
           return runTurn({
-            actionBase: `${publicWebhookBaseUrl}/api/phone/twilio/voice`,
+            actionBase: resolveWebhookUrl(publicWebhookBaseUrl, "/api/phone/twilio/voice"),
             body: mergeRequestBody(input.requestPath, input.body),
+            sessionId: parseSessionIdFromRequestPath(input.requestPath),
           }).pipe(Effect.provideService(CallRunManager, callRunManager));
         },
       });

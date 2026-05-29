@@ -194,6 +194,23 @@ describe("PhoneVoice", () => {
       expect(response.body).not.toContain("sessionId=not-a-session-id");
     }).pipe(Effect.provide(makePhoneLayer())));
 
+  it.effect("ignores sessionId form fields when requestPath does not include one", () =>
+    Effect.gen(function*() {
+      const phoneVoice = yield* PhoneVoice;
+      const response = yield* phoneVoice.respond({
+        requestPath: "/api/phone/twilio/voice",
+        headers: {},
+        body: makeParams({
+          sessionId: String(SESSION_ID),
+        }),
+      });
+
+      expect(response.status).toBe(200);
+      expect(response.body).toContain("Please tell me what appliance is giving you trouble.");
+      expect(response.body).toContain("action=\"/api/phone/twilio/voice\"");
+      expect(response.body).not.toContain(String(SESSION_ID));
+    }).pipe(Effect.provide(makePhoneLayer())));
+
   it.effect("does not start a run for whitespace only SpeechResult", () =>
     (() => {
       const startCalls: Array<typeof StartCallRunInput.Type> = [];
@@ -353,6 +370,25 @@ describe("PhoneVoice", () => {
       },
     }))));
 
+  it.effect("returns 503 in Twilio mode when TWILIO_AUTH_TOKEN is set but PUBLIC_WEBHOOK_BASE_URL is unset", () =>
+    Effect.gen(function*() {
+      const phoneVoice = yield* PhoneVoice;
+      const response = yield* phoneVoice.respond({
+        requestPath: "/api/phone/twilio/voice",
+        headers: {},
+        body: makeParams({ SpeechResult: "My refrigerator is warm" }),
+      });
+
+      expect(response.status).toBe(503);
+      expect(response.body).toContain("Twilio webhook is not configured");
+    }).pipe(Effect.provide(makePhoneLayer({
+      config: {
+        phoneProvider: "twilio",
+        publicWebhookBaseUrl: null,
+        twilioAuthToken: "twilio-secret",
+      },
+    }))));
+
   it.effect("chooses Twilio behavior when Twilio mode is selected and config is complete", () =>
     (() => {
       const startCalls: Array<typeof StartCallRunInput.Type> = [];
@@ -423,6 +459,56 @@ describe("PhoneVoice", () => {
         config: {
           phoneProvider: "twilio",
           publicWebhookBaseUrl: "https://hooks.example.com",
+          twilioAuthToken: "twilio-secret",
+        },
+        start: (input) => {
+          startCalls.push(input);
+          return Effect.succeed({
+            runId: RUN_ID,
+            sessionId: SESSION_ID,
+          });
+        },
+      })));
+    })());
+
+  it.effect("accepts a valid Twilio signature when PUBLIC_WEBHOOK_BASE_URL includes a path prefix", () =>
+    (() => {
+      const startCalls: Array<typeof StartCallRunInput.Type> = [];
+      const params = new URLSearchParams([
+        ["SpeechResult", "My refrigerator is warm"],
+        ["From", "+15550199"],
+      ]);
+
+      return Effect.gen(function*() {
+        const phoneVoice = yield* PhoneVoice;
+        const response = yield* phoneVoice.respond({
+          requestPath: "/api/phone/twilio/voice",
+          headers: {
+            "x-twilio-signature": computeSignature({
+              authToken: "twilio-secret",
+              url: "https://hooks.example.com/base/api/phone/twilio/voice",
+              params,
+            }),
+          },
+          body: UrlParams.fromInput(params),
+        });
+
+        expect(response.status).toBe(200);
+        expect(startCalls).toEqual([{
+          sessionId: null,
+          customerName: null,
+          phoneNumber: "+15550199",
+          email: null,
+          zipCode: null,
+          utterance: "My refrigerator is warm",
+        }]);
+        expect(response.body).toContain(
+          `action="https://hooks.example.com/base/api/phone/twilio/voice?sessionId=${SESSION_ID}"`,
+        );
+      }).pipe(Effect.provide(makePhoneLayer({
+        config: {
+          phoneProvider: "twilio",
+          publicWebhookBaseUrl: "https://hooks.example.com/base",
           twilioAuthToken: "twilio-secret",
         },
         start: (input) => {
