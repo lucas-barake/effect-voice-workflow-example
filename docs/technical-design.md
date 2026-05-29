@@ -66,8 +66,8 @@ The upload system creates a unique token, persists an upload session, records a 
 ## Tradeoffs
 
 - I kept the browser console because it is the fastest local console and does not depend on a provisioned carrier account.
-- I added a Twilio compatible phone webhook because the phone boundary is useful to demonstrate, but the repo cannot itself provision or fund a public number.
-- I kept browser native speech recognition and playback for the browser path because it gives a zero cost local loop while the phone path relies on Twilio speech capture and `Say`.
+- I kept the phone route behind a provider boundary so the default local mode stays runnable without carrier credentials while Twilio can be enabled for a real public webhook.
+- I kept browser native speech recognition and playback for the browser path because it gives a zero cost local loop while the Twilio mode relies on Twilio speech capture and `Say`.
 - I chose a local Ollama path over hosted APIs to keep the core system runnable without paid model credentials.
 - I kept the operational model narrow and typed instead of building a broad autonomous agent. The example favors working workflow design more than maximal agent complexity.
 

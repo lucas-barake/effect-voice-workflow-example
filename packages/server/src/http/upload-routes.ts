@@ -1,6 +1,5 @@
 import { UploadToken } from "@app/domain/service-contract";
 import * as Effect from "effect/Effect";
-import * as Layer from "effect/Layer";
 import * as Schema from "effect/Schema";
 import * as HttpRouter from "effect/unstable/http/HttpRouter";
 import * as HttpServerRequest from "effect/unstable/http/HttpServerRequest";
@@ -50,6 +49,6 @@ export const UploadRoute = HttpRouter.add(
   }),
 );
 
-export const UploadRoutes = Layer.mergeAll(HealthRoute, UploadRoute).pipe(
-  Layer.provide(ServicePlatform.layer),
+export const UploadRouteLive = UploadRoute.pipe(
+  HttpRouter.provideRequest(ServicePlatform.layer),
 );

@@ -22,6 +22,7 @@ const UploadDirectory = path.join(
 );
 
 const TestConfig = Layer.succeed(AppConfig, {
+  phoneProvider: "local" as const,
   publicAppOrigin: "http://localhost:4173",
   publicWebhookBaseUrl: null,
   twilioAuthToken: null,

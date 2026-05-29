@@ -12,33 +12,32 @@ import { HealthRoute, UploadRoute } from "./upload-routes.js";
 const TOKEN = UploadToken.make("upload-token-1234567890");
 
 const makeUploadRoutesLayer = (storeUpload?: ReturnType<typeof vi.fn>) =>
-  HttpRouter.serve(Layer.mergeAll(HealthRoute, UploadRoute)).pipe(
-    Layer.provide(
-      Layer.succeed(
-        ServicePlatform,
-        ServicePlatform.of({
-          getDashboardSnapshot: Effect.die("unused"),
-          getCallSession: () => Effect.die("unused"),
-          bookAppointment: () => Effect.die("unused"),
-          createUploadLink: () => Effect.die("unused"),
-          getUploadSession: () => Effect.die("unused"),
-          storeUpload: storeUpload ?? vi.fn((token, file) =>
-            Effect.succeed({
-              token,
-              status: "analyzed" as const,
-              email: "pat@example.com",
-              uploadUrl: `http://localhost:4173/upload/${token}`,
-              uploadedAt: "2026-05-27T12:00:00.000Z",
-              analysisSummary: `${file.name} uploaded`,
-              recognizedApplianceType: "refrigerator" as const,
-              visibleSignals: [],
-              expiresAt: "2026-05-28T12:00:00.000Z",
-            })
-          ),
-        }),
-      ),
-    ),
-  );
+  HttpRouter.serve(Layer.mergeAll(
+    HealthRoute,
+    UploadRoute.pipe(HttpRouter.provideRequest(Layer.succeed(
+      ServicePlatform,
+      ServicePlatform.of({
+        getDashboardSnapshot: Effect.die("unused"),
+        getCallSession: () => Effect.die("unused"),
+        bookAppointment: () => Effect.die("unused"),
+        createUploadLink: () => Effect.die("unused"),
+        getUploadSession: () => Effect.die("unused"),
+        storeUpload: storeUpload ?? vi.fn((token, file) =>
+          Effect.succeed({
+            token,
+            status: "analyzed" as const,
+            email: "pat@example.com",
+            uploadUrl: `http://localhost:4173/upload/${token}`,
+            uploadedAt: "2026-05-27T12:00:00.000Z",
+            analysisSummary: `${file.name} uploaded`,
+            recognizedApplianceType: "refrigerator" as const,
+            visibleSignals: [],
+            expiresAt: "2026-05-28T12:00:00.000Z",
+          })
+        ),
+      }),
+    ))),
+  ));
 
 describe("UploadRoutes", () => {
   afterEach(() => {

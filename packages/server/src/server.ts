@@ -9,11 +9,10 @@ import * as RpcServer from "effect/unstable/rpc/RpcServer";
 import { createServer } from "node:http";
 import { AppRpcLive } from "./api/app-rpc-live.js";
 import { CallRunManager } from "./api/app-rpc-live/call-run-manager.js";
-import { ServicePlatform } from "./api/app-rpc-live/service-platform.js";
 import { AppConfig, AppConfigLive } from "./config.js";
 import { MigrationLayer } from "./db/migrator.js";
-import { PhoneVoiceRoute } from "./http/phone-routes.js";
-import { HealthRoute, UploadRoute } from "./http/upload-routes.js";
+import { PhoneVoiceRouteLive } from "./http/phone-routes.js";
+import { HealthRoute, UploadRouteLive } from "./http/upload-routes.js";
 
 const RpcApplication = RpcServer.layerHttp({
   group: AppRpc,
@@ -25,8 +24,9 @@ const RpcApplication = RpcServer.layerHttp({
 );
 
 const HttpApplication = Layer.mergeAll(
-  PhoneVoiceRoute.pipe(Layer.provide(CallRunManager.layer)),
-  Layer.mergeAll(HealthRoute, UploadRoute).pipe(Layer.provide(ServicePlatform.layer)),
+  PhoneVoiceRouteLive,
+  HealthRoute,
+  UploadRouteLive,
   RpcApplication,
 ).pipe(
   Layer.provide(RpcSerialization.layerJson),
@@ -41,16 +41,14 @@ const HttpApplication = Layer.mergeAll(
 
 const ServerLayer = Layer.unwrap(
   Effect.gen(function*() {
-    const config = yield* AppConfig;
     return HttpRouter.serve(HttpApplication).pipe(
       Layer.provide(
-        NodeHttpServer.layer(createServer, { port: config.serverPort }),
+        NodeHttpServer.layer(createServer, { port: (yield* AppConfig).serverPort }),
       ),
     );
   }),
 ).pipe(
   Layer.provide(CallRunManager.layer),
-  Layer.provide(ServicePlatform.layer),
   Layer.provide(AppConfigLive),
   Layer.provide(MigrationLayer),
   Layer.orDie,
