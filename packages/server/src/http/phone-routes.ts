@@ -25,5 +25,5 @@ export const PhoneVoiceRoute = HttpRouter.add(
 );
 
 export const PhoneVoiceRouteLive = PhoneVoiceRoute.pipe(
-  HttpRouter.provideRequest(PhoneVoice.layer),
+  HttpRouter.provideRequest(PhoneVoice.layerFromConfig),
 );

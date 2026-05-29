@@ -208,7 +208,7 @@ export class PhoneVoice extends Context.Service<PhoneVoice, {
     }),
   );
 
-  static layer = Layer.unwrap(
+  static layerFromConfig = Layer.unwrap(
     Effect.gen(function*() {
       const config = yield* AppConfig;
       return config.phoneProvider === "twilio" ? PhoneVoice.layerTwilio : PhoneVoice.layerLocal;

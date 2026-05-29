@@ -65,7 +65,7 @@ const makePhoneLayer = (overrides?: {
     runId: typeof CallRunId.Type,
   ) => Stream.Stream<typeof CallRunEvent.Type, CallRunNotFound>;
 }) =>
-  PhoneVoice.layer.pipe(
+  PhoneVoice.layerFromConfig.pipe(
     Layer.provide(Layer.succeed(
       CallRunManager,
       CallRunManager.of({
