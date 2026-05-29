@@ -7,14 +7,14 @@ import * as HttpBody from "effect/unstable/http/HttpBody";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpRouter from "effect/unstable/http/HttpRouter";
 import { ServicePlatform } from "../api/app-rpc-live/service-platform.js";
-import { HealthRoute, makeUploadRouteLive } from "./upload-routes.js";
+import { HealthRoute, UploadRoute } from "./upload-routes.js";
 
 const TOKEN = UploadToken.make("upload-token-1234567890");
 
 const makeUploadRoutesLayer = (storeUpload?: ReturnType<typeof vi.fn>) =>
   HttpRouter.serve(Layer.mergeAll(
     HealthRoute,
-    makeUploadRouteLive(Layer.succeed(
+    UploadRoute.pipe(HttpRouter.provideRequest(Layer.succeed(
       ServicePlatform,
       ServicePlatform.of({
         getDashboardSnapshot: Effect.die("unused"),
@@ -36,7 +36,7 @@ const makeUploadRoutesLayer = (storeUpload?: ReturnType<typeof vi.fn>) =>
           })
         ),
       }),
-    )),
+    ))),
   ));
 
 describe("UploadRoutes", () => {
